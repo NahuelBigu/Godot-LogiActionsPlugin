@@ -1,0 +1,41 @@
+# Godot MX Console bridge — package layout matches Logitech Actions SDK (plugin4).
+# https://logitech.github.io/actions-sdk-docs/csharp/tutorial/plugin-structure
+
+type: plugin4
+
+name: GodotMxBridge
+
+displayName: Godot MX Console Bridge
+
+# Action / button tile background (ARGB). #478cbf — Godot engine blue (not SVG fills).
+backgroundColor: 4282879167
+
+description: >
+  Sends actions to the Godot editor via JSON files in %LOCALAPPDATA%\GodotMXCreativeConsole\
+  (events.json / context.json). Use with the Godot-MXConsole addon.
+
+pluginFileName: GodotMxBridgePlugin.dll
+
+version: 0.1.0
+
+author: NahuelBigu
+
+copyright: Copyright © 2026 NahuelBigu
+
+minimumLoupedeckVersion: 6.0
+
+pluginFolderWin: bin
+
+pluginFolderMac: bin
+
+supportedDevices:
+  - LoupedeckCtFamily
+  - LoupedeckExtendedFamily
+
+license: MIT
+
+licenseUrl: https://github.com/NahuelBigu/Godot-LogiActionsPlugin/blob/main/LICENSE
+
+homePageUrl: https://github.com/NahuelBigu/Godot-LogiActionsPlugin
+
+supportPageUrl: https://github.com/NahuelBigu/Godot-LogiActionsPlugin/issues

@@ -1,0 +1,109 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Loupedeck.GodotMxBridge</RootNamespace>
+    <AssemblyName>GodotMxBridgePlugin</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <!-- Match logiplugintool generate: DLL in …/bin/<Config>/bin/, metadata in …/bin/<Config>/metadata/ -->
+    <OutputPath>$(SolutionDir)bin\$(Configuration)\bin\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <PluginShortName>GodotMxBridge</PluginShortName>
+    <PluginDir Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(LOCALAPPDATA)\Logi\LogiPluginService\Plugins\</PluginDir>
+    <PluginDir Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(HOME)/Library/Application Support/Logi/LogiPluginService/Plugins/</PluginDir>
+  </PropertyGroup>
+
+  <!-- Exclude old files moved during refactoring (reference only, delete after verification) -->
+  <ItemGroup>
+    <Compile Remove="_old\**" />
+  </ItemGroup>
+
+  <!-- Embed SVG icons as resources for reactive icon loading -->
+  <ItemGroup>
+    <EmbeddedResource Include="Icons\svg\*.svg" />
+  </ItemGroup>
+
+  <!--
+    PluginApi.dll comes with Logi Plugin Service (Options+).
+    Override with: dotnet build -p:PluginApiPath="D:\path\PluginApi.dll"
+  -->
+  <Choose>
+    <When Condition="'$(PluginApiPath)' != ''">
+      <PropertyGroup>
+        <_ResolvedPluginApi>$(PluginApiPath)</_ResolvedPluginApi>
+      </PropertyGroup>
+    </When>
+    <When Condition="$([MSBuild]::IsOSPlatform('Windows')) And Exists('C:\Program Files\Logi\LogiPluginService\PluginApi.dll')">
+      <PropertyGroup>
+        <_ResolvedPluginApi>C:\Program Files\Logi\LogiPluginService\PluginApi.dll</_ResolvedPluginApi>
+      </PropertyGroup>
+    </When>
+    <When Condition="$([MSBuild]::IsOSPlatform('Windows')) And Exists('C:\Program Files (x86)\Logi\LogiPluginService\PluginApi.dll')">
+      <PropertyGroup>
+        <_ResolvedPluginApi>C:\Program Files (x86)\Logi\LogiPluginService\PluginApi.dll</_ResolvedPluginApi>
+      </PropertyGroup>
+    </When>
+    <When Condition="$([MSBuild]::IsOSPlatform('Windows')) And Exists('$(LOCALAPPDATA)\Logi\LogiPluginService\PluginApi.dll')">
+      <PropertyGroup>
+        <_ResolvedPluginApi>$(LOCALAPPDATA)\Logi\LogiPluginService\PluginApi.dll</_ResolvedPluginApi>
+      </PropertyGroup>
+    </When>
+    <When Condition="$([MSBuild]::IsOSPlatform('OSX')) And Exists('/Library/Application Support/Logi/LogiPluginService/PluginApi.dll')">
+      <PropertyGroup>
+        <_ResolvedPluginApi>/Library/Application Support/Logi/LogiPluginService/PluginApi.dll</_ResolvedPluginApi>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <_ResolvedPluginApi>C:\Program Files\Logi\LogiPluginService\PluginApi.dll</_ResolvedPluginApi>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+
+  <ItemGroup>
+    <Reference Include="PluginApi">
+      <HintPath>$(_ResolvedPluginApi)</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="EnsurePluginApi" BeforeTargets="CoreCompile" Condition="!Exists('$(_ResolvedPluginApi)')">
+    <Error Text="No se encontró PluginApi.dll en '$(_ResolvedPluginApi)'. Instala Logitech Options+ (Logi Plugin Service) o compila con -p:PluginApiPath=&quot;ruta\PluginApi.dll&quot;. Busca PluginApi.dll en Archivos de programa\Logi o %LOCALAPPDATA%\Logi." />
+  </Target>
+
+  <Target Name="CopyPackageMetadata" AfterTargets="PostBuildEvent">
+    <ItemGroup>
+      <PackageFiles Include="package\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PackageFiles)" DestinationFolder="$(OutputPath)..\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CreatePluginDevLink" AfterTargets="CopyPackageMetadata" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <PropertyGroup>
+      <_PluginBaseDir>$([System.IO.Path]::GetFullPath('$(OutputPath)..\'))</_PluginBaseDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(PluginDir)" Condition="!Exists('$(PluginDir)')" />
+    <!-- Use cmd echo (same as logiplugintool generate) to write ASCII, not UTF-16.
+         Logi Plugin Service may fail to parse UTF-16 encoded .link files. -->
+    <Exec Command="echo $(_PluginBaseDir)&gt; &quot;$(PluginDir)$(MSBuildProjectName).link&quot;" />
+    <Message Text="Plugin dev link: $(PluginDir)$(MSBuildProjectName).link → $(_PluginBaseDir)" Importance="High" />
+    <Exec Command="start loupedeck:plugin/$(PluginShortName)/reload" ContinueOnError="true" />
+  </Target>
+
+  <Target Name="CreatePluginDevLinkMac" AfterTargets="CopyPackageMetadata" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <PropertyGroup>
+      <_PluginBaseDir>$([System.IO.Path]::GetFullPath('$(OutputPath)..\'))</_PluginBaseDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(PluginDir)" Condition="!Exists('$(PluginDir)')" />
+    <Exec Command="echo $(_PluginBaseDir) &gt; $(PluginDir)$(MSBuildProjectName).link" />
+    <Message Text="Plugin dev link: $(PluginDir)$(MSBuildProjectName).link → $(_PluginBaseDir)" Importance="High" />
+    <Exec Command="open loupedeck:plugin/$(PluginShortName)/reload" ContinueOnError="true" />
+  </Target>
+
+  <Target Name="PluginClean" AfterTargets="CoreClean">
+    <Delete Files="$(PluginDir)$(MSBuildProjectName).link" ContinueOnError="true" />
+    <RemoveDir Directories="$(OutputPath)..\" ContinueOnError="true" />
+  </Target>
+</Project>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <path d="M 50 80 A 30 30 0 1 1 80 50" fill="none" stroke="#f25260" stroke-width="10" stroke-linecap="round"/>
+  <polygon points="70,55 80,45 90,55" fill="#f25260"/>
+  <text x="50" y="60" text-anchor="middle" fill="#f25260" font-size="32" font-family="sans-serif" font-weight="bold">X</text>
+</svg>

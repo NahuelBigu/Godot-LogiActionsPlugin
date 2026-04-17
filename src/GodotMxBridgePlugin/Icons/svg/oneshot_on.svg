@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path d="M 29 18 L 32 15 L 32 25" fill="none" stroke="#FFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+
+  <line x1="12" y1="36" x2="12" y2="48" fill="none" stroke="#FFF" stroke-width="4" stroke-linecap="round" />
+
+  <line x1="12" y1="42" x2="48" y2="42" fill="none" stroke="#FFF" stroke-width="4" stroke-linecap="round" />
+
+  <polyline points="40 36 48 42 40 48" fill="none" stroke="#FFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+
+  <circle cx="52" cy="42" r="1.5" fill="#FFF" stroke="none" />
+  <circle cx="50" cy="36" r="1.5" fill="#FFF" stroke="none" />
+  <circle cx="50" cy="48" r="1.5" fill="#FFF" stroke="none" />
+</svg>

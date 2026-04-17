@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <line x1="75" y1="25" x2="35" y2="65" stroke="#000" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="30" cy="70" r="22" fill="#000"/>
+  <text x="30" y="80" text-anchor="middle" fill="#000" font-size="28" font-family="sans-serif" font-weight="bold">Z</text>
+  <polyline points="60,20 80,20 80,40" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

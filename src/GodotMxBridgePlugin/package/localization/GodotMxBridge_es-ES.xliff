@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+  <file original="GodotMxBridge" source-language="en-US" target-language="es-ES" datatype="plaintext">
+    <body>
+      <trans-unit id="How to install and enable the addon in Godot">
+        <source>How to install and enable the addon in Godot</source>
+        <target>Cómo instalar y activar el addon en Godot</target>
+      </trans-unit>
+      <trans-unit id="No connection to the Godot editor. Install and enable the &quot;MX Console&quot; addon, open a project, and keep the editor running.">
+        <source>No connection to the Godot editor. Install and enable the "MX Console" addon, open a project, and keep the editor running.</source>
+        <target>No hay conexión con el editor de Godot. Instala y activa el addon «MX Console», abre un proyecto y deja el editor en marcha.</target>
+      </trans-unit>
+      <trans-unit id="Lost connection to the editor bridge. Make sure Godot is still running and the &quot;MX Console&quot; addon is enabled under Project → Project Settings → Plugins.">
+        <source>Lost connection to the editor bridge. Make sure Godot is still running and the "MX Console" addon is enabled under Project → Project Settings → Plugins.</source>
+        <target>Se perdió la conexión con el bridge del editor. Comprueba que Godot siga abierto y el addon «MX Console» activo en Proyecto → Configuración del proyecto → Plugins.</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

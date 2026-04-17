@@ -1,0 +1,130 @@
+namespace Loupedeck.GodotMxBridge;
+
+/// <summary>
+/// Shared transform encoder (Node2D / Node3D): context updates from <see cref="GodotContextBroadcastService.DispatchSnapshot"/>.
+/// Presentation identity uses <see cref="BridgePresentation.TransformPresentationIdentityChanged"/>.
+/// </summary>
+public abstract class NodeTransformAxisAdjustmentBase : PluginDynamicAdjustment, IGodotContextSubscriber
+{
+    private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+
+    private readonly String _axisKey;
+    private String _presentationTargetHint = "";
+    private Boolean? _presentationHasTransform;
+    private String? _presentationTransformPathKey;
+
+    protected String AxisKey => _axisKey;
+
+    public String PresentationTargetHint => _presentationTargetHint;
+
+    protected NodeTransformAxisAdjustmentBase(String displayName, String description, String axisKey)
+        : base(displayName, description, "Transform", hasReset: true)
+    {
+        _axisKey = axisKey;
+        this.DisableLoupedeckLocalization();
+    }
+
+    protected abstract void SendAxisReset(IBridgeTransport bridge);
+
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot) =>
+        OnBroadcastContextSnapshot(snapshot);
+
+    protected override bool OnLoad()
+    {
+        NodeTransformAdjustmentTracker.AxisReset += OnAxisReset;
+        if (Bridge != null && Bridge.TryReadSnapshot(out var s))
+        {
+            HydratePresentation(s);
+            _presentationHasTransform     = s.HasTransformNode;
+            _presentationTransformPathKey = BridgePresentation.TransformPresentationPathKey(s);
+        }
+
+        GodotContextBroadcastService.Subscribe(this);
+        return base.OnLoad();
+    }
+
+    protected override bool OnUnload()
+    {
+        GodotContextBroadcastService.Unsubscribe(this);
+
+        NodeTransformAdjustmentTracker.AxisReset -= OnAxisReset;
+        return base.OnUnload();
+    }
+
+    protected void HydratePresentation(ContextSnapshot snap) =>
+        _presentationTargetHint = BridgePresentation.FormatTransformTargetHint(snap);
+
+    private void OnBroadcastContextSnapshot(ContextSnapshot snapshot)
+    {
+        if (BridgePresentation.TransformPresentationIdentityChanged(
+                snapshot, _presentationHasTransform, _presentationTransformPathKey))
+        {
+            NodeTransformAdjustmentTracker.Clear();
+            _presentationHasTransform     = snapshot.HasTransformNode;
+            _presentationTransformPathKey = BridgePresentation.TransformPresentationPathKey(snapshot);
+        }
+
+        NodeTransformAdjustmentTracker.ReconcilePendingWithSnapshot(snapshot);
+        HydratePresentation(snapshot);
+        ActionImageChanged();
+        if (snapshot.HasTransformNode && NodeTransformHelper.AxisApplies(_axisKey, snapshot))
+            AdjustmentValueChanged(NodeTransformAdjustmentTracker.GetAxisScalarForNotification(_axisKey, snapshot));
+        else
+            AdjustmentValueChanged();
+    }
+
+    private void OnAxisReset(String key)
+    {
+        if (key != _axisKey) return;
+        if (Bridge.TryReadSnapshot(out var snap) && snap.HasTransformNode && NodeTransformHelper.AxisApplies(_axisKey, snap))
+            AdjustmentValueChanged(NodeTransformAdjustmentTracker.GetAxisScalarForNotification(_axisKey, snap));
+        else
+            AdjustmentValueChanged();
+    }
+
+    protected override void RunCommand(String actionParameter)
+    {
+        if (!Bridge.TryReadSnapshot(out var snap) || !snap.HasTransformNode
+                                                   || !NodeTransformHelper.AxisApplies(_axisKey, snap)) return;
+        SendAxisReset(Bridge);
+        NodeTransformAdjustmentTracker.NotifyResetApplied(_axisKey);
+    }
+
+    protected override void ApplyAdjustment(String actionParameter, Int32 diff)
+    {
+        if (!Bridge.TryReadSnapshot(out var snap) || !snap.HasTransformNode
+                                                   || !NodeTransformHelper.AxisApplies(_axisKey, snap)) return;
+        if (diff != 0)
+            NodeTransformAdjustmentTracker.SetActive(_axisKey);
+        NodeTransformHelper.ApplyEncoderDelta(_axisKey, diff, Bridge, snap);
+        AdjustmentValueChanged();
+    }
+
+    protected override Boolean ProcessTouchEvent(String actionParameter, DeviceTouchEvent touchEvent)
+    {
+        if (touchEvent.EventType is DeviceTouchEventType.TouchUp or DeviceTouchEventType.LongRelease
+            && String.Equals(NodeTransformAdjustmentTracker.ActiveKey, _axisKey, StringComparison.Ordinal))
+            NodeTransformAdjustmentTracker.Clear();
+        return base.ProcessTouchEvent(actionParameter, touchEvent);
+    }
+
+    protected override String GetAdjustmentValue(String actionParameter)
+    {
+        if (!Bridge.TryReadSnapshot(out var snap) || !snap.HasTransformNode
+                                                   || !NodeTransformHelper.AxisApplies(_axisKey, snap)) return "—";
+        if (NodeTransformAdjustmentTracker.TryGetPendingResetDisplay(_axisKey, snap, out var pending))
+            return pending;
+        return NodeTransformHelper.GetDisplayValue(_axisKey, snap) ?? "—";
+    }
+
+    protected override String GetAdjustmentDisplayName(String actionParameter, PluginImageSize imageSize)
+    {
+        var axis = NodeTransformHelper.GetDisplayName(_axisKey) ?? _axisKey;
+        return String.IsNullOrEmpty(_presentationTargetHint)
+            ? axis
+            : $"{axis} - {_presentationTargetHint}";
+    }
+
+    protected override BitmapImage GetAdjustmentImage(String actionParameter, PluginImageSize imageSize) =>
+        SvgIcons.GetDialIcon(_axisKey);
+}
