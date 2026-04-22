@@ -9,6 +9,9 @@ internal static class NodeTransformHelper
     private const double FallbackPosStep = 0.01;
     private const double FallbackRotStep = 0.1;
     private const double FallbackSclStep = 0.01;
+    private const double VelocityStart   = 3.5;
+    private const double VelocityEnd     = 12;
+    private const double VelocityMaxMul  = 50;
 
     public const double PosStep   = FallbackPosStep;
     public const double RotStep   = FallbackRotStep;
@@ -67,7 +70,7 @@ internal static class NodeTransformHelper
     {
         if (diff == 0) return 0;
         int speed = Math.Abs(diff);
-        double multiplier = speed <= 2 ? 1.0 : Math.Pow(speed - 1, 2.5);
+        double multiplier = SmoothVelocityMultiplier(speed);
         return (int)Math.Round(Math.Sign(diff) * multiplier);
     }
 
@@ -75,8 +78,16 @@ internal static class NodeTransformHelper
     {
         if (diff == 0) return 0;
         int    speed      = Math.Abs(diff);
-        double multiplier = speed <= 2 ? 1.0 : Math.Pow(speed - 1, 2.5);
+        double multiplier = SmoothVelocityMultiplier(speed);
         return Math.Sign(diff) * baseStep * multiplier;
+    }
+
+    private static double SmoothVelocityMultiplier(int speed)
+    {
+        var t = (speed - VelocityStart) / (VelocityEnd - VelocityStart);
+        t = Math.Clamp(t, 0.0, 1.0);
+        t = t * t * (3.0 - 2.0 * t); // smoothstep
+        return 1.0 + (VelocityMaxMul - 1.0) * t;
     }
 
     public static double GetScalar(string key, ContextSnapshot snap) => key switch
