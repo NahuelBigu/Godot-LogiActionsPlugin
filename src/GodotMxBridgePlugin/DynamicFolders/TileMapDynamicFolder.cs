@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 
 namespace Loupedeck.GodotMxBridge;
 
@@ -9,6 +10,7 @@ namespace Loupedeck.GodotMxBridge;
 public class TileMapDynamicFolder : PluginDynamicFolder, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Int32 _lastTileMapChromeSig = Int32.MinValue;
 
     public TileMapDynamicFolder()
     {
@@ -19,23 +21,39 @@ public class TileMapDynamicFolder : PluginDynamicFolder, IGodotContextSubscriber
     public override Boolean Load()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null)
-            Bridge.ContextChanged += OnContextChanged;
         return base.Load();
     }
 
     public override Boolean Unload()
     {
-        if (Bridge != null)
-            Bridge.ContextChanged -= OnContextChanged;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.Unload();
     }
 
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot _) => RefreshToolbarImages();
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snap)
+    {
+        var sig = TileMapChromeSignature(snap);
+        if (sig == _lastTileMapChromeSig) return;
+        _lastTileMapChromeSig = sig;
+        RefreshToolbarImages();
+    }
 
-    /// <summary>Same pattern as <see cref="ToggleEmittingCommand.OnBridgeContextChanged"/> (no <c>RequestFreshSnapshot</c>).</summary>
-    private void OnContextChanged() => RefreshToolbarImages();
+    private static Int32 TileMapChromeSignature(ContextSnapshot s)
+    {
+        var hc = new HashCode();
+        hc.Add(s.HasTileMap);
+        hc.Add(s.TileMapCurrentLayer);
+        hc.Add(s.TileMapLayerCount);
+        hc.Add(s.TileMapActiveTool ?? "");
+        hc.Add(BitConverter.DoubleToInt64Bits(Math.Round(s.TileMapRandomScatter, 5)));
+        foreach (var kv in s.TileMapToolbar.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            hc.Add(kv.Key);
+            hc.Add(kv.Value);
+        }
+
+        return hc.ToHashCode();
+    }
 
     private void RefreshToolbarImages()
     {

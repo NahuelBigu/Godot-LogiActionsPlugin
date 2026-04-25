@@ -7,6 +7,7 @@ namespace Loupedeck.GodotMxBridge;
 public class RestartParticlesCommand : PluginDynamicCommand, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Boolean? _lastHasParticles;
 
     public RestartParticlesCommand()
         : base("Restart Particles", "Restart particle emission (GPU/CPU 2D/3D)", "Particles")
@@ -17,20 +18,22 @@ public class RestartParticlesCommand : PluginDynamicCommand, IGodotContextSubscr
     protected override bool OnLoad()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null) Bridge.ContextChanged += OnBridgeContextChanged;
         return base.OnLoad();
     }
 
     protected override bool OnUnload()
     {
-        if (Bridge != null) Bridge.ContextChanged -= OnBridgeContextChanged;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.OnUnload();
     }
 
-    private void OnBridgeContextChanged() => RefreshCommandSurface();
-
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot) => RefreshCommandSurface();
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot)
+    {
+        var has = snapshot.HasParticles;
+        if (_lastHasParticles == has) return;
+        _lastHasParticles = has;
+        RefreshCommandSurface();
+    }
 
     private void RefreshCommandSurface() => ActionImageChanged(actionParameter: null);
 
@@ -39,6 +42,7 @@ public class RestartParticlesCommand : PluginDynamicCommand, IGodotContextSubscr
         if (Bridge.TryReadSnapshot(out var s) && s.HasParticles)
         {
             Bridge.SendTrigger(EventIds.PtRestart);
+            _lastHasParticles = null;
             RefreshCommandSurface();
         }
     }

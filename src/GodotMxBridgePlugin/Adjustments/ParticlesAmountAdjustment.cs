@@ -7,6 +7,8 @@ namespace Loupedeck.GodotMxBridge;
 public class ParticlesAmountAdjustment : PluginDynamicAdjustment, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Boolean? _lastHas;
+    private Int32? _lastAmount;
 
     public ParticlesAmountAdjustment()
         : base("Particles Amount", "Dial to increase or decrease particle amount", "Particles", hasReset: false)
@@ -28,6 +30,11 @@ public class ParticlesAmountAdjustment : PluginDynamicAdjustment, IGodotContextS
 
     void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot)
     {
+        var has = snapshot.HasParticles;
+        var amt = snapshot.ParticlesAmount;
+        if (_lastHas == has && _lastAmount == amt) return;
+        _lastHas    = has;
+        _lastAmount = amt;
         ActionImageChanged();
         AdjustmentValueChanged();
     }
@@ -39,6 +46,7 @@ public class ParticlesAmountAdjustment : PluginDynamicAdjustment, IGodotContextS
         if (delta == 0) return;
         var next = ParticleAmountDialHelper.ClampMin1(s.ParticlesAmount + delta);
         Bridge.SendInt(EventIds.PtAmount, next);
+        AdjustmentValueChanged();
     }
 
     protected override string GetAdjustmentValue(string actionParameter)

@@ -14,6 +14,7 @@ public sealed class AnimationTracksDynamicFolder : PluginDynamicFolder, IGodotCo
     private const int MaxTracks = 128;
 
     private string[]? _lastTouchActions;
+    private Int32 _lastTrackFolderSig = Int32.MinValue;
 
     public AnimationTracksDynamicFolder()
     {
@@ -24,20 +25,35 @@ public sealed class AnimationTracksDynamicFolder : PluginDynamicFolder, IGodotCo
     public override bool Load()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null) Bridge.ContextChanged += OnContextChanged;
         return base.Load();
     }
 
     public override bool Unload()
     {
-        if (Bridge != null) Bridge.ContextChanged -= OnContextChanged;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.Unload();
     }
 
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot _) => RefreshLayout();
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snap)
+    {
+        var sig = TrackFolderSignature(snap);
+        if (sig == _lastTrackFolderSig) return;
+        _lastTrackFolderSig = sig;
+        RefreshLayout();
+    }
 
-    private void OnContextChanged() => RefreshLayout();
+    private static Int32 TrackFolderSignature(ContextSnapshot s)
+    {
+        var hc = new HashCode();
+        hc.Add(s.HasAnimation);
+        hc.Add(s.AnimationTrackCount);
+        hc.Add(s.AnimationSelectedTrack);
+        var n = s.HasAnimation ? Math.Min(s.AnimationTrackCount, MaxTracks) : 0;
+        hc.Add(n);
+        for (var i = 0; i < n; i++)
+            hc.Add(i < s.AnimationTrackNames.Length ? s.AnimationTrackNames[i] ?? "" : "");
+        return hc.ToHashCode();
+    }
 
     private void RefreshLayout()
     {

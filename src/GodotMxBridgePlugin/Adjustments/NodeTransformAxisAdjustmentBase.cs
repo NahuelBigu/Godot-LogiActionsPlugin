@@ -13,6 +13,11 @@ public abstract class NodeTransformAxisAdjustmentBase : PluginDynamicAdjustment,
     private Boolean? _presentationHasTransform;
     private String? _presentationTransformPathKey;
 
+    private String _lastPaintedHint = "\u0001";
+    private Boolean _lastPaintedApplicable;
+    private Double _lastPaintedScalar;
+    private Boolean _hasLastPaintedSurface;
+
     protected String AxisKey => _axisKey;
 
     public String PresentationTargetHint => _presentationTargetHint;
@@ -66,16 +71,49 @@ public abstract class NodeTransformAxisAdjustmentBase : PluginDynamicAdjustment,
 
         NodeTransformAdjustmentTracker.ReconcilePendingWithSnapshot(snapshot);
         HydratePresentation(snapshot);
+
+        var applicable = snapshot.HasTransformNode && NodeTransformHelper.AxisApplies(_axisKey, snapshot);
+        var hint       = _presentationTargetHint ?? "";
+        var scalar     = applicable
+            ? NodeTransformAdjustmentTracker.GetAxisScalarForNotification(_axisKey, snapshot)
+            : 0.0;
+
+        if (_hasLastPaintedSurface
+            && hint == _lastPaintedHint
+            && applicable == _lastPaintedApplicable
+            && (!applicable || NotificationScalarsEqual(_axisKey, scalar, _lastPaintedScalar)))
+            return;
+
+        _hasLastPaintedSurface   = true;
+        _lastPaintedHint       = hint;
+        _lastPaintedApplicable = applicable;
+        _lastPaintedScalar     = scalar;
+
         ActionImageChanged();
-        if (snapshot.HasTransformNode && NodeTransformHelper.AxisApplies(_axisKey, snapshot))
-            AdjustmentValueChanged(NodeTransformAdjustmentTracker.GetAxisScalarForNotification(_axisKey, snapshot));
+        if (applicable)
+            AdjustmentValueChanged(scalar);
         else
             AdjustmentValueChanged();
+    }
+
+    private static Boolean NotificationScalarsEqual(String axisKey, Double a, Double b)
+    {
+        if (axisKey is ActionKeys.TfRotX or ActionKeys.TfRotY or ActionKeys.TfRotZ)
+        {
+            var d = a - b;
+            if (Math.Abs(d) < 0.05) return true;
+            if (Math.Abs(d - 360.0) < 0.05) return true;
+            if (Math.Abs(d + 360.0) < 0.05) return true;
+            return false;
+        }
+
+        return Math.Abs(a - b) < 0.0001;
     }
 
     private void OnAxisReset(String key)
     {
         if (key != _axisKey) return;
+        _hasLastPaintedSurface = false;
         if (Bridge.TryReadSnapshot(out var snap) && snap.HasTransformNode && NodeTransformHelper.AxisApplies(_axisKey, snap))
             AdjustmentValueChanged(NodeTransformAdjustmentTracker.GetAxisScalarForNotification(_axisKey, snap));
         else

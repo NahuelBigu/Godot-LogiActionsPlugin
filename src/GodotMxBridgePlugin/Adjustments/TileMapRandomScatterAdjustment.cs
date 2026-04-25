@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 
 namespace Loupedeck.GodotMxBridge;
@@ -6,6 +7,8 @@ namespace Loupedeck.GodotMxBridge;
 public sealed class TileMapRandomScatterAdjustment : PluginDynamicAdjustment, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Boolean? _lastHas;
+    private Double? _lastScatter;
 
     public TileMapRandomScatterAdjustment()
         : base(
@@ -20,22 +23,24 @@ public sealed class TileMapRandomScatterAdjustment : PluginDynamicAdjustment, IG
     protected override bool OnLoad()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null)
-            Bridge.ContextChanged += OnBridgeContextChanged;
         return base.OnLoad();
     }
 
     protected override bool OnUnload()
     {
-        if (Bridge != null)
-            Bridge.ContextChanged -= OnBridgeContextChanged;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.OnUnload();
     }
 
-    private void OnBridgeContextChanged() => RefreshDialSurface();
-
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot _) => RefreshDialSurface();
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snap)
+    {
+        var has = snap.HasTileMap;
+        var sc  = has ? Math.Round(snap.TileMapRandomScatter, 5) : (Double?)null;
+        if (_lastHas == has && _lastScatter == sc) return;
+        _lastHas     = has;
+        _lastScatter = sc;
+        RefreshDialSurface();
+    }
 
     private void RefreshDialSurface()
     {

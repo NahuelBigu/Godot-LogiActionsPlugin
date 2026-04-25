@@ -15,6 +15,7 @@ public abstract class TileMapToolReactiveCommandBase : PluginDynamicCommand, IGo
     private readonly String _displayName;
     private readonly String _toolKey;
     private readonly String _surfaceLabel;
+    private Boolean? _lastPaintedLit;
 
     // ── Throttled diagnostics ─────────────────────────────────────────────────
     /// <summary>Tick of the last emitted diagnostic log (shared across all instances).</summary>
@@ -38,31 +39,21 @@ public abstract class TileMapToolReactiveCommandBase : PluginDynamicCommand, IGo
     protected override Boolean OnLoad()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null)
-            Bridge.ContextChanged += OnContextChanged;
         PluginLog.Info($"[TM-DIAG] OnLoad key={_toolKey}");
         return base.OnLoad();
     }
 
     protected override Boolean OnUnload()
     {
-        if (Bridge != null)
-            Bridge.ContextChanged -= OnContextChanged;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.OnUnload();
     }
 
-    private void OnContextChanged()
-    {
-        var n = Interlocked.Increment(ref _diagEventCount);
-        // Log the first one, then every 20 events to avoid spam.
-        if (n == 1 || n % 20 == 0)
-            LogSnapState("CtxChanged", n);
-        ActionImageChanged(actionParameter: null);
-    }
-
     void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot)
     {
+        var lit = SvgIcons.IsTileMapToolLit(_toolKey, snapshot);
+        if (_lastPaintedLit == lit) return;
+        _lastPaintedLit = lit;
         var n = Interlocked.Increment(ref _diagEventCount);
         if (n == 1 || n % 20 == 0)
             LogSnapState("Snapshot", n);
@@ -74,6 +65,7 @@ public abstract class TileMapToolReactiveCommandBase : PluginDynamicCommand, IGo
         PluginLog.Info($"[TM-DIAG] RunCommand key={_toolKey}");
         TileMapBridgeCommands.SendToolTrigger(_toolKey);
         Bridge?.RequestFreshSnapshot();
+        _lastPaintedLit = null;
         ActionImageChanged(actionParameter: null);
     }
 

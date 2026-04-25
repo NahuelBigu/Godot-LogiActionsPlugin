@@ -14,6 +14,7 @@ public sealed class AnimationClipsDynamicFolder : PluginDynamicFolder, IGodotCon
     private const int MaxClips = 128;
 
     private string[]? _lastTouchActions;
+    private Int32 _lastClipFolderSig = Int32.MinValue;
 
     public AnimationClipsDynamicFolder()
     {
@@ -24,20 +25,34 @@ public sealed class AnimationClipsDynamicFolder : PluginDynamicFolder, IGodotCon
     public override bool Load()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null) Bridge.ContextChanged += OnContextChanged;
         return base.Load();
     }
 
     public override bool Unload()
     {
-        if (Bridge != null) Bridge.ContextChanged -= OnContextChanged;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.Unload();
     }
 
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot _) => RefreshLayout();
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snap)
+    {
+        var sig = ClipFolderSignature(snap);
+        if (sig == _lastClipFolderSig) return;
+        _lastClipFolderSig = sig;
+        RefreshLayout();
+    }
 
-    private void OnContextChanged() => RefreshLayout();
+    private static Int32 ClipFolderSignature(ContextSnapshot s)
+    {
+        var hc = new HashCode();
+        hc.Add(s.HasAnimation);
+        hc.Add(s.AnimationName ?? "");
+        var n = s.HasAnimation ? Math.Min(s.AnimationClipNames.Length, MaxClips) : 0;
+        hc.Add(n);
+        for (var i = 0; i < n; i++)
+            hc.Add(s.AnimationClipNames[i] ?? "");
+        return hc.ToHashCode();
+    }
 
     private void RefreshLayout()
     {

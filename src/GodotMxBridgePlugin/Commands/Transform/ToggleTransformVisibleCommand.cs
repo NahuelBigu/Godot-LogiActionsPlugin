@@ -7,6 +7,8 @@ namespace Loupedeck.GodotMxBridge;
 public class ToggleTransformVisibleCommand : PluginDynamicCommand, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Boolean? _lastHasTransform;
+    private Boolean? _lastVisible;
 
     public ToggleTransformVisibleCommand()
         : base("Toggle Visibility", "Toggle Node2D/Node3D visibility", "Transform")
@@ -17,20 +19,24 @@ public class ToggleTransformVisibleCommand : PluginDynamicCommand, IGodotContext
     protected override Boolean OnLoad()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null) Bridge.ContextChanged += OnBridgeContextChanged;
         return base.OnLoad();
     }
 
     protected override Boolean OnUnload()
     {
-        if (Bridge != null) Bridge.ContextChanged -= OnBridgeContextChanged;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.OnUnload();
     }
 
-    private void OnBridgeContextChanged() => RefreshCommandSurface();
-
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot) => RefreshCommandSurface();
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot)
+    {
+        var has = snapshot.HasTransformNode;
+        var vis = snapshot.Visible;
+        if (_lastHasTransform == has && _lastVisible == vis) return;
+        _lastHasTransform = has;
+        _lastVisible      = vis;
+        RefreshCommandSurface();
+    }
 
     private void RefreshCommandSurface() => ActionImageChanged(actionParameter: null);
 
@@ -39,6 +45,8 @@ public class ToggleTransformVisibleCommand : PluginDynamicCommand, IGodotContext
         if (Bridge.TryReadSnapshot(out var s) && s.HasTransformNode)
         {
             Bridge.SendBool(EventIds.TfVisible, !s.Visible);
+            _lastHasTransform = null;
+            _lastVisible      = null;
             RefreshCommandSurface();
         }
     }

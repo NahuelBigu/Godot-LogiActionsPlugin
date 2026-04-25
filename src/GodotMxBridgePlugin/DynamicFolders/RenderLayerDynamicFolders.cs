@@ -77,6 +77,7 @@ public abstract class RenderLayerBitmaskFolderBase : PluginDynamicFolder, IGodot
     private readonly String _idleLabel;
     private readonly Boolean _showDimensionInFolderButton;
     private readonly Func<ContextSnapshot, RenderLayerView> _resolveView;
+    private Int32 _lastRenderViewSig = Int32.MinValue;
 
     private protected RenderLayerBitmaskFolderBase(
         Char slotLetter,
@@ -95,7 +96,6 @@ public abstract class RenderLayerBitmaskFolderBase : PluginDynamicFolder, IGodot
 
     public override Boolean Load()
     {
-        if (Bridge != null) Bridge.ContextChanged += OnContextChanged;
         GodotContextBroadcastService.Subscribe(this);
         return base.Load();
     }
@@ -103,17 +103,27 @@ public abstract class RenderLayerBitmaskFolderBase : PluginDynamicFolder, IGodot
     public override Boolean Unload()
     {
         GodotContextBroadcastService.Unsubscribe(this);
-        if (Bridge != null) Bridge.ContextChanged -= OnContextChanged;
         return base.Unload();
     }
 
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot _) =>
-        RefreshSurface();
-
-    private void OnContextChanged()
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snap)
     {
-        Bridge?.RequestFreshSnapshot();
+        var sig = RenderLayerViewSignature(_resolveView(snap));
+        if (sig == _lastRenderViewSig) return;
+        _lastRenderViewSig = sig;
         RefreshSurface();
+    }
+
+    private static Int32 RenderLayerViewSignature(RenderLayerView v)
+    {
+        var hc = new HashCode();
+        hc.Add(v.HasTarget);
+        hc.Add(v.Bits);
+        hc.Add(v.ModeLabel ?? "");
+        hc.Add(v.ToggleEventId ?? "");
+        foreach (var n in v.LayerNames)
+            hc.Add(n ?? "");
+        return hc.ToHashCode();
     }
 
     private void RefreshSurface()

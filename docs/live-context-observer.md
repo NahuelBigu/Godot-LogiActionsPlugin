@@ -19,12 +19,13 @@ flowchart LR
     Cache["Snapshot cache (TTL)"]
     FP["LiveContextFingerprint"]
     CC["ContextChanged"]
-    DS["DispatchSnapshot (if poll sees change)"]
+    DS["DispatchSnapshot (staggered fan-out)"]
     Nudge["Label nudge (1 s)"]
     Poll --> Cache --> FP
     Poll --> CC
     Poll --> DS
     Nudge --> CC
+    Nudge -.->|FP changed| DS
   end
   Write <--> Poll
 ```
@@ -106,12 +107,12 @@ and **returns early** without notifying if **both** the raw payload and the fing
 
 ### 3.3 `IGodotContextSubscriber` + `GodotContextBroadcastService.DispatchSnapshot`
 
-- **Not a separate timer.** After each successful poll, if the transport decides that live UI state changed (`shouldNotify`), it invokes **`ContextChanged`** and **`GodotContextBroadcastService.DispatchSnapshot(snapshot)`** with the **same** `ContextSnapshot` already parsed and cached for that poll.
-- **Not raised** from the label-nudge-only path—so subscribers get updates **only** when the poll path detected a real change (same gating as poll-driven `ContextChanged`, without the 1 s nudge spam).
+- **No extra HTTP poll here.** After each successful poll, if the transport decides that live UI state changed (`shouldNotify`), it invokes **`ContextChanged`** and **`GodotContextBroadcastService.DispatchSnapshot(snapshot)`** with the **same** `ContextSnapshot` already parsed and cached for that poll. **`DispatchSnapshot`** then notifies subscribers **one at a time**, spaced by **`BridgePollSchedule.ContextSubscriberStaggerMs`** (default 8 ms), so many controls are not repainted in a single synchronous burst.
+- **Label nudge (~1 s):** **`ContextChanged`** still fires so broad listeners can refresh cached readouts. **`DispatchSnapshot`** runs **only** if **`LiveContextFingerprint`** of the freshly read snapshot **differs** from the last fingerprint seen by the poll (same rule as coalescing)—not on every nudge tick.
 
-- **Use for:** Encoders or actions that need **live** values tied to editor state **without** being woken every second by the nudge. Implement **`IGodotContextSubscriber`**, call **`GodotContextBroadcastService.Subscribe(this)`** in `OnLoad` and **`GodotContextBroadcastService.Unsubscribe(this)`** in `OnUnload`, and implement **`OnGodotContextSnapshot(ContextSnapshot snapshot)`** using the passed snapshot (no extra HTTP).
+- **Use for:** Encoders or actions that need **live** values tied to editor state **without** redundant wakeups when nothing logical changed. Implement **`IGodotContextSubscriber`**, call **`GodotContextBroadcastService.Subscribe(this)`** in `OnLoad` and **`GodotContextBroadcastService.Unsubscribe(this)`** in `OnUnload`, and implement **`OnGodotContextSnapshot(ContextSnapshot snapshot)`** using the passed snapshot (no extra HTTP). Prefer **local diff** before `ActionImageChanged` / `AdjustmentValueChanged` when only a subset of fields affects the control.
 
-Reference implementation: **`Node3DAxisAdjustmentBase`** (reconcile pending reset, hydrate presentation hint, `AdjustmentValueChanged`, etc.).
+Reference implementation: **`NodeTransformAxisAdjustmentBase`** (reconcile pending reset, hydrate presentation hint, `AdjustmentValueChanged`, etc.).
 
 ---
 
@@ -121,7 +122,7 @@ Reference implementation: **`Node3DAxisAdjustmentBase`** (reconcile pending rese
 |------|-----------|
 | Broad refresh, OK with ~1 s nudge | `ContextChanged` + `TryReadSnapshot` in handler |
 | “Which node / target” only | `PresentationTargetChanged` |
-| Live values, same cadence as poll, **no** nudge-only wakeups | `IGodotContextSubscriber` + `DispatchSnapshot` |
+| Live values, poll cadence, **no** nudge spam on identical state | `IGodotContextSubscriber` + `DispatchSnapshot` |
 | User turned a dial / pressed a key | Your action’s `ApplyAdjustment` / `RunCommand` already runs; optionally call `AdjustmentValueChanged` after local updates |
 
 ---
@@ -146,7 +147,7 @@ Avoid hashing raw JSON strings for the fingerprint unless you accept formatting 
 | Fingerprint | `Bridge/LiveContextFingerprint.cs` |
 | Subscriber fan-out | `Bridge/GodotContextBroadcastService.cs`, `Bridge/IGodotContextSubscriber.cs` |
 | Presentation helpers | `Bridge/BridgePresentation.cs` |
-| Example consumer | `Adjustments/Node3DAxisAdjustmentBase.cs` |
+| Example consumer | `Adjustments/NodeTransformAxisAdjustmentBase.cs` |
 
 Godot addon: context build and `_compute_ctx_hash` live under **`Godot-MXConsoleAddon`** (e.g. `addons/mx_creative_console/plugin.gd`, `core/mx_context_bus.gd`).
 
@@ -156,5 +157,5 @@ Godot addon: context build and `_compute_ctx_hash` live under **`Godot-MXConsole
 
 - **Deferred startup** (~18 s plugin delay + 6 s transport delay) then **one fast poll** (~350 ms) keeps the plugin aligned with the editor; **fingerprinting** avoids useless UI work when logical state is unchanged.
 - **`ContextChanged`** is the wide net (includes periodic label nudge).
-- **`IGodotContextSubscriber`** is the narrow net: **poll-driven** updates only, **same snapshot** as the poll, **no separate broadcast timer** and **no** duplicate invalidation path for that path.
+- **`IGodotContextSubscriber`** receives **`DispatchSnapshot`** when the poll (or nudge with a **new fingerprint**) detects a logical change—**not** on every nudge; deliveries are **staggered** across subscribers. **`ContextChanged`** remains the wider net (includes periodic nudge) and still runs **immediately** with the poll.
 - Keep Godot’s **write hash** and the C# **fingerprint** in mind together when you evolve the schema so both sides stay coherent.

@@ -297,9 +297,21 @@ internal sealed class HttpBridgeTransport : IBridgeTransport
                 // Periodic refresh: cache can otherwise serve a snapshot up to SnapshotCacheTtlMs old,
                 // so MX readouts (dynamic folders only get AdjustmentValueChanged(string)) skip HTTP until TTL expires.
                 InvalidateSnapshotCache();
-                // ContextChanged alone does not fan out IGodotContextSubscriber; mirror a poll read so TileMap / snap tiles refresh.
+                // Fan-out to IGodotContextSubscriber only when logical UI state changed (same fingerprint rule as poll),
+                // so subscribers are not woken ~1 Hz with identical snapshots. ContextChanged still nudges wide listeners.
                 if (TryReadSnapshot(out var nudgeSnap))
-                    GodotContextBroadcastService.DispatchSnapshot(nudgeSnap);
+                {
+                    var fp = LiveContextFingerprint.Compute(nudgeSnap);
+                    var shouldDispatch = false;
+                    lock (_pollLock)
+                    {
+                        shouldDispatch = !_lastLiveUiFingerprint.HasValue || fp != _lastLiveUiFingerprint.Value;
+                    }
+
+                    if (shouldDispatch)
+                        GodotContextBroadcastService.DispatchSnapshot(nudgeSnap);
+                }
+
                 ContextChanged?.Invoke();
             }
         }

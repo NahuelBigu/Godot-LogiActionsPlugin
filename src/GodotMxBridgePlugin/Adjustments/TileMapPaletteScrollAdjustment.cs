@@ -1,9 +1,12 @@
+using System;
+
 namespace Loupedeck.GodotMxBridge;
 
 /// <summary>Standalone encoder: scroll tile/terrain palette (same as the TileMap dynamic folder dial).</summary>
 public sealed class TileMapPaletteScrollAdjustment : PluginDynamicAdjustment, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Boolean? _lastHasTileMap;
 
     public TileMapPaletteScrollAdjustment()
         : base(
@@ -18,26 +21,22 @@ public sealed class TileMapPaletteScrollAdjustment : PluginDynamicAdjustment, IG
     protected override bool OnLoad()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null)
-            Bridge.ContextChanged += OnBridgeContextChanged;
         return base.OnLoad();
     }
 
     protected override bool OnUnload()
     {
-        if (Bridge != null)
-            Bridge.ContextChanged -= OnBridgeContextChanged;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.OnUnload();
     }
 
-    /// <summary>
-    /// <see cref="IBridgeTransport.ContextChanged"/> also fires from the label nudge (~1/s) without
-    /// <see cref="GodotContextBroadcastService.DispatchSnapshot"/>; the observer covers the poll that changed context.
-    /// </summary>
-    private void OnBridgeContextChanged() => RefreshDialSurface();
-
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot _) => RefreshDialSurface();
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snap)
+    {
+        var has = snap.HasTileMap;
+        if (_lastHasTileMap == has) return;
+        _lastHasTileMap = has;
+        RefreshDialSurface();
+    }
 
     private void RefreshDialSurface()
     {

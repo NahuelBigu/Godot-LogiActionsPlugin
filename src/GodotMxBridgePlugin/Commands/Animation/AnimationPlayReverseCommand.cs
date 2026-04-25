@@ -7,6 +7,9 @@ namespace Loupedeck.GodotMxBridge;
 public sealed class AnimationPlayReverseCommand : PluginDynamicCommand, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Boolean? _lastHasAnim;
+    private Boolean? _lastPlaying;
+    private Boolean? _lastPaused;
 
     public AnimationPlayReverseCommand()
         : base("Anim - Play Reverse", "Play the animation backwards from the current position", "Animation")
@@ -17,25 +20,33 @@ public sealed class AnimationPlayReverseCommand : PluginDynamicCommand, IGodotCo
     protected override bool OnLoad()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null) Bridge.ContextChanged += Refresh;
         return base.OnLoad();
     }
 
     protected override bool OnUnload()
     {
-        if (Bridge != null) Bridge.ContextChanged -= Refresh;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.OnUnload();
     }
 
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot _) => Refresh();
-    private void Refresh() => ActionImageChanged(actionParameter: null);
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot s)
+    {
+        var h = s.HasAnimation;
+        var p = s.AnimationPlaying;
+        var u = s.AnimationPaused;
+        if (_lastHasAnim == h && _lastPlaying == p && _lastPaused == u) return;
+        _lastHasAnim  = h;
+        _lastPlaying  = p;
+        _lastPaused   = u;
+        ActionImageChanged(actionParameter: null);
+    }
 
     protected override void RunCommand(string actionParameter)
     {
         Bridge.TryReadSnapshot(out var snap);
         Bridge.SendTrigger(snap.AnimationPlaying ? EventIds.AnimPause : EventIds.AnimPlayReverse);
-        Refresh();
+        _lastHasAnim = null;
+        ActionImageChanged(actionParameter: null);
     }
 
     protected override BitmapImage GetCommandImage(string actionParameter, PluginImageSize imageSize)

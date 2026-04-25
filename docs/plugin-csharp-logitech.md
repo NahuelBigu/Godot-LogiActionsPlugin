@@ -145,7 +145,7 @@ This repo adds **`PluginDynamicFolder`** types (see [Dynamic Folders](https://lo
 - **Godot · Game** — When the game is running: pause, stop, restart, reset time scale, time-scale dial, focus Game tab. When you are on the Game tab but not running: run current/main scene, focus Game tab. Otherwise: open Game tab.
 - **Godot · Node3D** — When a `Node3D` is selected: **one encoder row per channel** (uniform scale, position X/Y/Z, rotation X/Y/Z), same interaction as **Time scale** in the Game folder — focus that row, then use the dial; plus **Toggle visible**. If nothing is selected, a placeholder explains to select a `Node3D` in Godot.
 
-Layouts refresh when **`HttpBridgeTransport`** polls **`GET /context`** and the parsed snapshot / fingerprint changes (Godot addon also refreshes editor state on its own timer). Some code still subscribes to **`ContextChanged`**; Node3D encoders use **`IGodotContextSubscriber`** for poll-only updates—see [live-context-observer.md](live-context-observer.md). The addon may still write **`context.json`** for debugging; the plugin does **not** use a separate JSON file transport class.
+Layouts refresh when **`HttpBridgeTransport`** polls **`GET /context`** and the parsed snapshot / fingerprint changes (Godot addon also refreshes editor state on its own timer). **`ContextChanged`** is still used where a broad periodic signal helps; transform dials and other live controls use **`IGodotContextSubscriber`** with **local diff** before repainting—see [live-context-observer.md](live-context-observer.md). The addon may still write **`context.json`** for debugging; the plugin does **not** use a separate JSON file transport class.
 
 ## 10. Distribution
 

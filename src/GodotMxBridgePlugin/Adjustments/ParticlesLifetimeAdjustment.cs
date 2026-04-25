@@ -7,6 +7,8 @@ namespace Loupedeck.GodotMxBridge;
 public class ParticlesLifetimeAdjustment : PluginDynamicAdjustment, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Boolean? _lastHas;
+    private Double? _lastLifetime;
 
     public ParticlesLifetimeAdjustment()
         : base("Particles Lifetime", "Dial: lifetime (0.01s steps; same encoder behavior as speed dial)", "Particles", hasReset: false)
@@ -28,6 +30,11 @@ public class ParticlesLifetimeAdjustment : PluginDynamicAdjustment, IGodotContex
 
     void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot)
     {
+        var has = snapshot.HasParticles;
+        var lt  = has ? Math.Round(snapshot.ParticlesLifetime, 4) : (Double?)null;
+        if (_lastHas == has && _lastLifetime == lt) return;
+        _lastHas      = has;
+        _lastLifetime = lt;
         ActionImageChanged();
         AdjustmentValueChanged();
     }
@@ -36,6 +43,7 @@ public class ParticlesLifetimeAdjustment : PluginDynamicAdjustment, IGodotContex
     {
         if (!Bridge.TryReadSnapshot(out var s) || !s.HasParticles || diff == 0) return;
         Bridge.SendFloat(EventIds.PtLifetime, ParticleLifetimeDialHelper.ApplyEncoderDiff(s.ParticlesLifetime, diff));
+        AdjustmentValueChanged();
     }
 
     protected override string GetAdjustmentValue(string actionParameter)

@@ -25,6 +25,13 @@ public abstract class CollisionBitmaskDynamicFolderBase : PluginDynamicFolder, I
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
 
     private readonly Boolean _maskMode;
+    private Boolean _collisionPrimed;
+    private Boolean _lastHasCollision;
+    private String _lastCollisionPath = "";
+    private CollisionPhysicsDimension _lastCollisionDim;
+    private Int32 _lastLayerBits;
+    private Int32 _lastMaskBits;
+    private Int32 _lastLayerNamesSig;
 
     protected CollisionBitmaskDynamicFolderBase(Boolean maskMode, String displayTitle)
     {
@@ -35,7 +42,6 @@ public abstract class CollisionBitmaskDynamicFolderBase : PluginDynamicFolder, I
 
     public override Boolean Load()
     {
-        if (Bridge != null) Bridge.ContextChanged += OnContextChanged;
         GodotContextBroadcastService.Subscribe(this);
         return base.Load();
     }
@@ -43,17 +49,37 @@ public abstract class CollisionBitmaskDynamicFolderBase : PluginDynamicFolder, I
     public override Boolean Unload()
     {
         GodotContextBroadcastService.Unsubscribe(this);
-        if (Bridge != null) Bridge.ContextChanged -= OnContextChanged;
         return base.Unload();
     }
 
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot) =>
-        RefreshCollisionFolderSurface();
-
-    private void OnContextChanged()
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snap)
     {
-        Bridge?.RequestFreshSnapshot();
+        var namesSig = CollisionLayerNamesSignature(snap);
+        if (_collisionPrimed
+            && snap.HasCollisionObject == _lastHasCollision
+            && (snap.CollisionObjectPath ?? "") == _lastCollisionPath
+            && snap.CollisionDimension == _lastCollisionDim
+            && snap.CollisionLayerBits == _lastLayerBits
+            && snap.CollisionMaskBits == _lastMaskBits
+            && namesSig == _lastLayerNamesSig)
+            return;
+
+        _collisionPrimed       = true;
+        _lastHasCollision      = snap.HasCollisionObject;
+        _lastCollisionPath     = snap.CollisionObjectPath ?? "";
+        _lastCollisionDim      = snap.CollisionDimension;
+        _lastLayerBits         = snap.CollisionLayerBits;
+        _lastMaskBits          = snap.CollisionMaskBits;
+        _lastLayerNamesSig     = namesSig;
         RefreshCollisionFolderSurface();
+    }
+
+    private static Int32 CollisionLayerNamesSignature(ContextSnapshot s)
+    {
+        var hc = new HashCode();
+        foreach (var n in s.CollisionPhysicsLayerNames)
+            hc.Add(n ?? "");
+        return hc.ToHashCode();
     }
 
     private void RefreshCollisionFolderSurface()

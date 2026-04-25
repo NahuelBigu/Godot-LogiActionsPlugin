@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 
 namespace Loupedeck.GodotMxBridge;
 
@@ -10,6 +11,7 @@ namespace Loupedeck.GodotMxBridge;
 public sealed class AnimationTimeAdjustment : PluginDynamicAdjustment, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private String? _lastPaintKey;
 
     public AnimationTimeAdjustment()
         : base("Anim - Time Scrub", "Dial: scrub animation time - Press: insert key", "Animation", hasReset: false)
@@ -20,20 +22,33 @@ public sealed class AnimationTimeAdjustment : PluginDynamicAdjustment, IGodotCon
     protected override bool OnLoad()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null) Bridge.ContextChanged += OnContextChanged;
         return base.OnLoad();
     }
 
     protected override bool OnUnload()
     {
-        if (Bridge != null) Bridge.ContextChanged -= OnContextChanged;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.OnUnload();
     }
 
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot _) => Refresh();
-    private void OnContextChanged() => Refresh();
-    private void Refresh() { ActionImageChanged(); AdjustmentValueChanged(); }
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snap)
+    {
+        String key;
+        if (Bridge.TryReadFocusedProp(out var prop))
+        {
+            key = "F:" + prop.Label + ":" + prop.Value.ToString("G9", CultureInfo.InvariantCulture);
+        }
+        else if (!snap.HasAnimation)
+            key = "A:0";
+        else
+            key = "A:1:" + snap.AnimationPosition.ToString("F3", CultureInfo.InvariantCulture) + ":" +
+                  snap.AnimationLength.ToString("F2", CultureInfo.InvariantCulture);
+
+        if (key == _lastPaintKey) return;
+        _lastPaintKey = key;
+        ActionImageChanged();
+        AdjustmentValueChanged();
+    }
 
     protected override void ApplyAdjustment(string actionParameter, int diff)
     {

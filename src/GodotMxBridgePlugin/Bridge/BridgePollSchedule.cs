@@ -19,4 +19,10 @@ internal static class BridgePollSchedule
     /// context timer (~350 ms) so switching Node3D / main screen updates dials within ~0.5 s.
     /// </summary>
     public const int PeriodMs = 350;
+
+    /// <summary>
+    /// Delay between each <see cref="IGodotContextSubscriber.OnGodotContextSnapshot"/> when a context
+    /// snapshot is broadcast, so many Loupedeck surfaces are not repainted in the same timer tick.
+    /// </summary>
+    public const int ContextSubscriberStaggerMs = 8;
 }

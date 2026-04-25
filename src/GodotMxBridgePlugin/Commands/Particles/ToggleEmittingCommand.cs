@@ -7,6 +7,8 @@ namespace Loupedeck.GodotMxBridge;
 public class ToggleEmittingCommand : PluginDynamicCommand, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Boolean? _lastHasParticles;
+    private Boolean? _lastEmitting;
 
     public ToggleEmittingCommand()
         : base("Toggle Emitting", "Toggle GPU Particles emitting state", "Particles")
@@ -17,25 +19,24 @@ public class ToggleEmittingCommand : PluginDynamicCommand, IGodotContextSubscrib
     protected override bool OnLoad()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null) Bridge.ContextChanged += OnBridgeContextChanged;
         return base.OnLoad();
     }
 
     protected override bool OnUnload()
     {
-        if (Bridge != null) Bridge.ContextChanged -= OnBridgeContextChanged;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.OnUnload();
     }
 
-    /// <summary>
-    /// Same idea as <see cref="PluginDynamicFolder"/> handlers: <see cref="IBridgeTransport.ContextChanged"/>
-    /// also runs from <c>LabelNudge</c> (~1/s), which does not call <see cref="GodotContextBroadcastService.DispatchSnapshot"/>.
-    /// Without this, standalone commands miss repaints that dynamic-folder <c>CommandImageChanged</c> gets.
-    /// </summary>
-    private void OnBridgeContextChanged() => RefreshCommandSurface();
-
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot) => RefreshCommandSurface();
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot)
+    {
+        var has = snapshot.HasParticles;
+        var em  = snapshot.ParticlesEmitting;
+        if (_lastHasParticles == has && _lastEmitting == em) return;
+        _lastHasParticles = has;
+        _lastEmitting     = em;
+        RefreshCommandSurface();
+    }
 
     /// <summary>
     /// Per PluginApi.xml, use <see cref="Loupedeck.PluginDynamicAction.ActionImageChanged(string)"/> with
@@ -48,6 +49,8 @@ public class ToggleEmittingCommand : PluginDynamicCommand, IGodotContextSubscrib
         if (Bridge.TryReadSnapshot(out var s) && s.HasParticles)
         {
             Bridge.SendBool(EventIds.PtEmitting, !s.ParticlesEmitting);
+            _lastHasParticles = null;
+            _lastEmitting     = null;
             RefreshCommandSurface();
         }
     }

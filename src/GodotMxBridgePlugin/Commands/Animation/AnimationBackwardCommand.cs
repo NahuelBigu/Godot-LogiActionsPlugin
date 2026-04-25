@@ -7,6 +7,8 @@ namespace Loupedeck.GodotMxBridge;
 public sealed class AnimationBackwardCommand : PluginDynamicCommand, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Boolean? _lastHasAnim;
+    private Double? _lastPositionRounded;
 
     public AnimationBackwardCommand()
         : base("Anim - Backward", "Step backward - Long press: jump to start", "Animation")
@@ -17,19 +19,24 @@ public sealed class AnimationBackwardCommand : PluginDynamicCommand, IGodotConte
     protected override bool OnLoad()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null) Bridge.ContextChanged += Refresh;
         return base.OnLoad();
     }
 
     protected override bool OnUnload()
     {
-        if (Bridge != null) Bridge.ContextChanged -= Refresh;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.OnUnload();
     }
 
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot _) => Refresh();
-    private void Refresh() => ActionImageChanged(actionParameter: null);
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot s)
+    {
+        var h = s.HasAnimation;
+        var t = h ? Math.Round(s.AnimationPosition, 3) : (Double?)null;
+        if (_lastHasAnim == h && _lastPositionRounded == t) return;
+        _lastHasAnim           = h;
+        _lastPositionRounded   = t;
+        ActionImageChanged(actionParameter: null);
+    }
 
     protected override void RunCommand(string actionParameter) =>
         Bridge.SendTrigger(EventIds.AnimStepBackward);

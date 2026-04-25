@@ -7,6 +7,8 @@ namespace Loupedeck.GodotMxBridge;
 public sealed class AnimationLoopToggleCommand : PluginDynamicCommand, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Boolean? _lastHasAnim;
+    private Int32? _lastLoopMode;
 
     public AnimationLoopToggleCommand()
         : base("Anim - Toggle Loop", "Cycle animation loop: off, repeat, ping-pong", "Animation")
@@ -17,25 +19,32 @@ public sealed class AnimationLoopToggleCommand : PluginDynamicCommand, IGodotCon
     protected override bool OnLoad()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null) Bridge.ContextChanged += Refresh;
         return base.OnLoad();
     }
 
     protected override bool OnUnload()
     {
-        if (Bridge != null) Bridge.ContextChanged -= Refresh;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.OnUnload();
     }
 
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot _) => Refresh();
-    private void Refresh() => ActionImageChanged(actionParameter: null);
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot s)
+    {
+        var h = s.HasAnimation;
+        var m = s.AnimationLoopMode;
+        if (_lastHasAnim == h && _lastLoopMode == m) return;
+        _lastHasAnim   = h;
+        _lastLoopMode  = m;
+        ActionImageChanged(actionParameter: null);
+    }
 
     protected override void RunCommand(string actionParameter)
     {
         if (!Bridge.TryReadSnapshot(out var snap) || !snap.HasAnimation) return;
         Bridge.SendTrigger(EventIds.AnimToggleLoop);
-        Refresh();
+        _lastHasAnim  = null;
+        _lastLoopMode = null;
+        ActionImageChanged(actionParameter: null);
     }
 
     protected override BitmapImage GetCommandImage(string actionParameter, PluginImageSize imageSize)

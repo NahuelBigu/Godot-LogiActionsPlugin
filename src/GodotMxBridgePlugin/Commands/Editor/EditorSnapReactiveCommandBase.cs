@@ -4,7 +4,7 @@ namespace Loupedeck.GodotMxBridge;
 
 /// <summary>
 /// Editor shortcut command with reactive icon/label from <see cref="ContextSnapshot"/> snap flags
-/// (Godot toolbar toggles), via <see cref="GodotContextBroadcastService"/> + <see cref="IBridgeTransport.ContextChanged"/>.
+/// (Godot toolbar toggles), via <see cref="GodotContextBroadcastService"/> only.
 /// </summary>
 public abstract class EditorSnapReactiveCommandBase : PluginDynamicCommand, IGodotContextSubscriber
 {
@@ -13,6 +13,7 @@ public abstract class EditorSnapReactiveCommandBase : PluginDynamicCommand, IGod
     private readonly String _shortcutPath;
     private readonly String _shortLabel;
     private readonly Func<ContextSnapshot, Boolean> _isActive;
+    private Boolean? _lastPaintedActive;
 
     protected EditorSnapReactiveCommandBase(
         String displayName,
@@ -32,22 +33,22 @@ public abstract class EditorSnapReactiveCommandBase : PluginDynamicCommand, IGod
     protected override Boolean OnLoad()
     {
         GodotContextBroadcastService.Subscribe(this);
-        if (Bridge != null)
-            Bridge.ContextChanged += OnBridgeContextChanged;
         return base.OnLoad();
     }
 
     protected override Boolean OnUnload()
     {
-        if (Bridge != null)
-            Bridge.ContextChanged -= OnBridgeContextChanged;
         GodotContextBroadcastService.Unsubscribe(this);
         return base.OnUnload();
     }
 
-    private void OnBridgeContextChanged() => RefreshCommandSurface();
-
-    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot) => RefreshCommandSurface();
+    void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot)
+    {
+        var active = _isActive(snapshot);
+        if (_lastPaintedActive == active) return;
+        _lastPaintedActive = active;
+        RefreshCommandSurface();
+    }
 
     private void RefreshCommandSurface() => ActionImageChanged(actionParameter: null);
 
@@ -55,6 +56,7 @@ public abstract class EditorSnapReactiveCommandBase : PluginDynamicCommand, IGod
     {
         Bridge.SendEditorShortcut(_shortcutPath);
         Bridge.RequestFreshSnapshot();
+        _lastPaintedActive = null;
         RefreshCommandSurface();
     }
 

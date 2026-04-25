@@ -3,6 +3,8 @@ namespace Loupedeck.GodotMxBridge;
 public class ParticlesRandomnessAdjustment : PluginDynamicAdjustment, IGodotContextSubscriber
 {
     private static IBridgeTransport Bridge => GodotMxBridgePlugin.Bridge;
+    private Boolean? _lastHas;
+    private Double? _lastVal;
 
     public ParticlesRandomnessAdjustment()
         : base("Particles Randomness", "Dial: emission randomness ratio (1% steps)", "Particles", hasReset: false)
@@ -24,6 +26,11 @@ public class ParticlesRandomnessAdjustment : PluginDynamicAdjustment, IGodotCont
 
     void IGodotContextSubscriber.OnGodotContextSnapshot(ContextSnapshot snapshot)
     {
+        var has = snapshot.HasParticles;
+        var v   = has ? Math.Round(snapshot.ParticlesRandomness, 5) : (Double?)null;
+        if (_lastHas == has && _lastVal == v) return;
+        _lastHas = has;
+        _lastVal = v;
         ActionImageChanged();
         AdjustmentValueChanged();
     }
@@ -33,6 +40,7 @@ public class ParticlesRandomnessAdjustment : PluginDynamicAdjustment, IGodotCont
         if (!Bridge.TryReadSnapshot(out var s) || !s.HasParticles || diff == 0) return;
         var next = ParticleAmountRatioHelper.ApplyEncoderDiff(s.ParticlesRandomness, diff);
         Bridge.SendFloat(EventIds.PtRandomness, next);
+        AdjustmentValueChanged();
     }
 
     protected override string GetAdjustmentValue(string actionParameter) =>
