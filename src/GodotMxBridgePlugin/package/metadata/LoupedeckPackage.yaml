@@ -5,14 +5,14 @@ type: plugin4
 
 name: GodotMxBridge
 
-displayName: Godot MX Console Bridge
+displayName: Godot
 
 # Action / button tile background (ARGB). #478cbf — Godot engine blue (not SVG fills).
 backgroundColor: 4282879167
 
 description: >
-  Sends actions to the Godot editor via JSON files in %LOCALAPPDATA%\GodotMXCreativeConsole\
-  (events.json / context.json). Use with the Godot-MXConsole addon.
+  Sends actions to the Godot editor through a local bridge. Use with the
+  Godot-MXConsole addon.
 
 pluginFileName: GodotMxBridgePlugin.dll
 

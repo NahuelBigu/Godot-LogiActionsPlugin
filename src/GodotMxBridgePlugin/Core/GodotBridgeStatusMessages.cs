@@ -9,7 +9,7 @@ internal static class GodotBridgeStatusMessages
     /// <summary>Matches <c>_get_plugin_name()</c> in the Godot editor addon.</summary>
     public const string GodotAddonDisplayName = "MX Console";
 
-    public const string SetupHelpUrl = "https://github.com/NahuelBigu/Godot-MXConsoleAddon";
+    public const string SetupHelpUrl = "https://youtu.be/u0L-FMGce5o";
 
     /// <summary>Hyperlink label in Options+ / Loupedeck plugin error status.</summary>
     public const string SetupHelpLinkTitle = "How to install and enable the addon in Godot";
